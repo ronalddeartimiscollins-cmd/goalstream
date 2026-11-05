@@ -6,6 +6,6 @@ export default {
     // 1234567: ["https://partner.example/live/match1234567.m3u8"],
   },
   leagues: {
-    // 39: ["https://partner.example/live/premier-league.m3u8"],
+    // 39: ["https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"],,
   },
 };
