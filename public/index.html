@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0b0f0d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="GoalStream">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>GoalStream</title>
+<style>
+:root{--bg:#0b0f0d;--card:#141a17;--tx:#f2f5f3;--mut:#8a9a92;--ac:#1db954;--red:#ff4d4d;--bd:#24302a;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#f4f7f5;--card:#fff;--tx:#10201a;--mut:#5d6f66;--bd:#dbe5df;color-scheme:light}}
+:root[data-theme="light"]{--bg:#f4f7f5;--card:#fff;--tx:#10201a;--mut:#5d6f66;--bd:#dbe5df;color-scheme:light}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0 auto;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:720px;padding:0 12px 80px}
+h1{font-size:22px;margin:14px 0 4px}h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin:20px 0 8px}
+.bar{display:flex;gap:8px;overflow-x:auto;padding:6px 0}.chip,button,select,input{font:inherit;color:var(--tx)}
+.chip{white-space:nowrap;padding:6px 12px;border:1px solid var(--bd);border-radius:20px;background:var(--card);cursor:pointer}
+.chip.on{background:var(--ac);border-color:var(--ac);color:#fff}
+input[type=search]{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--bd);background:var(--card)}
+.m{display:flex;align-items:center;gap:10px;padding:12px;margin:8px 0;background:var(--card);border:1px solid var(--bd);border-radius:12px;cursor:pointer}
+.m .t{flex:1;min-width:0}.m .lg{font-size:12px;color:var(--mut)}.sc{font-weight:700;font-size:18px;min-width:56px;text-align:center}
+.live{color:var(--red);font-weight:700;font-size:12px}.star{background:none;border:0;font-size:20px;cursor:pointer;color:var(--mut)}.star.on{color:#f5b301}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;background:var(--card);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav button{flex:1;max-width:180px;padding:12px;background:none;border:0;cursor:pointer;color:var(--mut)}nav button.on{color:var(--ac);font-weight:700}
+video{width:100%;aspect-ratio:16/9;background:#000;border-radius:12px}
+.box{padding:16px;border:1px dashed var(--bd);border-radius:12px;color:var(--mut);margin:8px 0}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:8px 0}
+.back{background:none;border:0;color:var(--ac);cursor:pointer;padding:8px 0}
+#ad[hidden]{display:none}#ad{position:fixed;inset:0;z-index:99;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px}
+#ad .cr{width:min(320px,90%);aspect-ratio:6/5;border:1px dashed var(--bd);border-radius:14px;display:flex;align-items:center;justify-content:center;color:var(--mut);background:var(--card)}
+#ad button{padding:10px 22px;border-radius:24px;border:0;background:var(--ac);color:#fff;cursor:pointer}#ad button:disabled{background:var(--bd);color:var(--mut);cursor:default}
+a{color:var(--ac)}select{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:6px}small{color:var(--mut)}
+</style>
+</head>
+<body>
+<div id="ad">
+  <small>Advertisement</small>
+  <!-- AD SLOT: replace this placeholder with your AdSense / Google IMA ad code -->
+  <div class="cr">Your ad appears here</div>
+  <button id="skip" disabled>Skip in 5</button>
+  <small>GoalStream is free thanks to ads.</small>
+</div>
+<div id="app"></div>
+<nav id="nav"></nav>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js"></script>
+<script>
+// Fallback sample data, used only when /api/matches is unreachable (e.g. opened as a plain file).
+var SAMPLE=[
+ {id:1,l:'Premier League',c:'England',h:'Arsenal',a:'Chelsea',hs:2,as:1,st:'live',min:67,t:'',src:[]},
+ {id:2,l:'La Liga',c:'Spain',h:'Sevilla',a:'Valencia',hs:0,as:0,st:'live',min:23,t:'',src:[]},
+ {id:3,l:'Serie A',c:'Italy',h:'Napoli',a:'Roma',hs:0,as:0,st:'up',min:'',t:'2000-01-01T19:45:00+00:00',src:[]},
+ {id:4,l:'Ligue 1',c:'France',h:'Lyon',a:'Nice',hs:2,as:2,st:'ft',min:'',t:'',src:[]}
+];
+var S={tab:'home',lg:'All',q:'',sel:null,hls:null,favs:[],day:0,all:[],note:'',loading:true};
+function ls(k,v){try{if(v===undefined)return JSON.parse(localStorage.getItem(k));localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}}
+S.favs=ls('gs_favs')||[];
+var $=function(i){return document.getElementById(i)};
+
+// ---- ad gate: shown on every app open and before every match with a stream ----
+// 5s before the skip button works, so a failed ad can never trap the user.
+function adGate(cb){
+  var ad=$('ad'),b=$('skip'),n=5,t;
+  ad.hidden=false;b.disabled=true;b.textContent='Skip in 5';
+  t=setInterval(function(){n--;if(n>0){b.textContent='Skip in '+n}else{clearInterval(t);b.textContent=cb?'Continue to match':'Continue';b.disabled=false}},1000);
+  b.onclick=function(){clearInterval(t);ad.hidden=true;if(cb)cb()};
+}
+
+// ---- data ----
+function dateStr(off){return new Date(Date.now()+off*864e5).toISOString().slice(0,10)}
+function load(silent){
+  if(!silent){S.loading=true;render()}
+  fetch('/api/matches?date='+dateStr(S.day)).then(function(r){
+    if(!r.ok)throw 0;return r.json()}).then(function(j){
+    if(!j.matches)throw 0;S.all=j.matches;S.note='';S.loading=false;render()
+  }).catch(function(){
+    if(silent&&S.all.length)return;
+    S.all=SAMPLE;S.note='Showing sample data. Live data is not connected.';S.loading=false;render()});
+}
+setInterval(function(){if(!document.hidden&&!S.sel&&S.tab==='home'&&S.day===0)load(true)},60000);
+
+// ---- views ----
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function ko(m){var d=new Date(m.t);return isNaN(d)?'':d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}
+function card(m){
+  var f=S.favs.indexOf(m.id)>-1,mid=m.st==='up'?ko(m):m.hs+' – '+m.as;
+  var tag=m.st==='live'?'<span class="live">● LIVE '+(typeof m.min==='number'?m.min+'’':esc(m.min))+'</span>':(m.st==='ft'?'<small>Full time</small>':(m.st==='up'?'<small>Upcoming</small>':'<small>Postponed or other</small>'));
+  return '<div class="m" data-id="'+m.id+'"><div class="t"><div class="lg">'+esc(m.l)+(m.c?' · '+esc(m.c):'')+'</div><div>'+esc(m.h)+' v '+esc(m.a)+'</div>'+tag+(m.src.length?' <small>▶ Watch</small>':'')+'</div><div class="sc">'+mid+'</div><button class="star'+(f?' on':'')+'" data-fav="'+m.id+'" aria-label="Follow">'+(f?'★':'☆')+'</button></div>';
+}
+function filt(){var q=S.q.toLowerCase();return S.all.filter(function(m){
+  return(S.lg==='All'||m.l===S.lg)&&(!q||(m.h+m.a+m.l+(m.c||'')).toLowerCase().indexOf(q)>-1)})}
+function group(list){
+  var o='';[['live','Live now'],['up','Upcoming'],['ft','Finished'],['x','Postponed or other']].forEach(function(g){
+    var x=list.filter(function(m){return m.st===g[0]});
+    if(x.length)o+='<h2>'+g[1]+' ('+x.length+')</h2>'+x.map(card).join('')});
+  return o||'<div class="box">No matches found.</div>'}
+function days(){return '<div class="bar">'+[[-1,'Yesterday'],[0,'Today'],[1,'Tomorrow']].map(function(d){return '<span class="chip'+(S.day===d[0]?' on':'')+'" data-day="'+d[0]+'">'+d[1]+'</span>'}).join('')+'</div>'}
+function leagues(){
+  var n={};S.all.forEach(function(m){n[m.l]=(n[m.l]||0)+1});
+  var L=['All'].concat(Object.keys(n).sort(function(a,b){return n[b]-n[a]}).slice(0,15));
+  if(S.lg!=='All'&&L.indexOf(S.lg)<0)L.push(S.lg);
+  return '<div class="bar">'+L.map(function(l){return '<span class="chip'+(l===S.lg?' on':'')+'" data-lg="'+esc(l)+'">'+esc(l)+'</span>'}).join('')+'</div>'}
+
+function render(){
+  if(S.hls){S.hls.destroy();S.hls=null}
+  var h='<h1>⚽ GoalStream</h1>';
+  if(S.note)h+='<small>'+esc(S.note)+'</small>';
+  if(S.sel){var m=S.all.filter(function(x){return x.id===S.sel})[0];
+    if(!m){S.sel=null;return render()}
+    h+='<button class="back" id="back">← Back</button><div class="lg">'+esc(m.l)+'</div><h1>'+esc(m.h)+' '+(m.st==='up'?'v':(m.hs+' – '+m.as))+' '+esc(m.a)+'</h1>';
+    h+='<video id="v" controls playsinline'+(m.src.length?'':' hidden')+'></video>';
+    h+='<div class="row"><small id="info"></small><select id="q" aria-label="Quality"><option value="-1">Auto</option></select></div>';
+    h+='<div class="box" id="pmsg"'+(m.src.length?' hidden':'')+'>No licensed stream is available for this match in your region. Check the official rights holder to watch.</div>';
+    h+='<small>Streams are provided by third-party rights holders; availability and quality may vary.</small>';
+    $('app').innerHTML=h;if(m.src.length)play(m);navr();return}
+  if(S.loading)h+='<div class="box">Loading matches…</div>';
+  else{
+    if(S.tab==='home')h+=days()+leagues()+group(filt());
+    if(S.tab==='search')h+='<input type="search" id="si" placeholder="Search team, league, country…" value="'+esc(S.q)+'">'+group(filt());
+    if(S.tab==='favs'){var f=S.all.filter(function(m){return S.favs.indexOf(m.id)>-1});h+=f.length?group(f):'<div class="box">Tap ☆ on a match to follow it.</div>'}
+  }
+  if(S.tab==='set')h+='<h2>Settings</h2><div class="row"><span>Theme</span><select id="th"><option value="">System</option><option value="dark">Dark</option><option value="light">Light</option></select></div>'+installRow()+'<div class="box">Notifications and language are planned for the next version.<br><a href="/privacy.html">Privacy policy</a> · <a href="/terms.html">Terms</a></div>';
+  $('app').innerHTML=h;
+  var th=$('th');if(th){th.value=ls('gs_th')||'';th.onchange=function(){ls('gs_th',th.value);theme()}}
+  var si=$('si');if(si){si.oninput=function(){S.q=si.value;var p=si.selectionStart;render();var n=$('si');n.focus();n.setSelectionRange(p,p)}}
+  navr();
+}
+function navr(){var tabs=[['home','Live'],['search','Search'],['favs','Following'],['set','Settings']];
+  $('nav').innerHTML=tabs.map(function(t){return '<button data-tab="'+t[0]+'" class="'+(S.tab===t[0]?'on':'')+'">'+t[1]+'</button>'}).join('')}
+function theme(){var t=ls('gs_th');if(t)document.documentElement.setAttribute('data-theme',t);else document.documentElement.removeAttribute('data-theme')}
+
+// ---- player: ordered fallback sources + quality menu ----
+function play(m){
+  var v=$('v'),q=$('q'),i=0;
+  function next(){
+    if(S.hls){S.hls.destroy();S.hls=null}
+    if(i>=m.src.length){v.hidden=true;$('pmsg').hidden=false;$('info').textContent='';return}
+    var u=m.src[i++];$('info').textContent='Source '+i+' of '+m.src.length;
+    if(window.Hls&&Hls.isSupported()){
+      var h=S.hls=new Hls();h.loadSource(u);h.attachMedia(v);
+      h.on(Hls.Events.MANIFEST_PARSED,function(){
+        q.innerHTML='<option value="-1">Auto</option>'+h.levels.map(function(l,k){return '<option value="'+k+'">'+l.height+'p</option>'}).join('');
+        v.play().catch(function(){})});
+      h.on(Hls.Events.ERROR,function(e,d){if(d.fatal)next()});
+    }else if(v.canPlayType('application/vnd.apple.mpegurl')){v.src=u;v.onerror=next;v.play().catch(function(){})}
+    else next();
+  }
+  q.onchange=function(){if(S.hls)S.hls.currentLevel=+q.value};
+  next();
+}
+
+document.addEventListener('click',function(e){
+  var t=e.target,fav=t.closest('[data-fav]');
+  if(t.id==='inst'&&DEF){DEF.prompt();DEF.userChoice.then(function(){DEF=null;render()});return}
+  if(fav){e.stopPropagation();var id=+fav.dataset.fav,k=S.favs.indexOf(id);
+    if(k>-1)S.favs.splice(k,1);else S.favs.push(id);ls('gs_favs',S.favs);render();return}
+  var c=t.closest('.m');if(c){var mid=+c.dataset.id,mm=S.all.filter(function(x){return x.id===mid})[0];
+    var go=function(){S.sel=mid;render();window.scrollTo(0,0)};
+    if(mm&&mm.src.length)adGate(go);else go();return}
+  var d=t.closest('[data-day]');if(d){S.day=+d.dataset.day;S.lg='All';load();return}
+  var lg=t.closest('[data-lg]');if(lg){S.lg=lg.dataset.lg;render();return}
+  var tb=t.closest('[data-tab]');if(tb){S.tab=tb.dataset.tab;S.sel=null;render();return}
+  if(t.id==='back'){S.sel=null;render()}
+});
+// ---- install to home screen ----
+var DEF=null;
+window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();DEF=e;if(S.tab==='set'&&!S.sel)render()});
+window.addEventListener('appinstalled',function(){DEF=null;render()});
+function standalone(){return (window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true}
+function installRow(){
+  if(standalone())return '';
+  if(DEF)return '<div class="row"><span>Install GoalStream</span><button class="chip" id="inst">Install app</button></div>';
+  var ios=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  return '<div class="box">'+(ios?'To install: tap the Share button, then “Add to Home Screen”.':'To install: open your browser menu and choose “Install app” or “Add to Home screen”.')+'</div>'}
+if('serviceWorker' in navigator)window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})});
+
+theme();load();adGate();
+</script>
+</body>
+</html>
